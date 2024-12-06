@@ -50,7 +50,16 @@ func CreateOrder(ctx *gin.Context)  {
 	var order models.Order
 	ctx.BindJSON(&order)
 
-	err := db.Create(&order).Error
+	var car models.Car
+	err := db.First(&car, order.CarId).Error
+	if err != nil {
+		ctx.JSON(500, gin.H{
+			"message": "Car not found",
+		})
+		return
+	}
+
+	err = db.Create(&order).Error
 	if err != nil {
 		ctx.JSON(500, gin.H{
 			"message": "Failed to create order",
@@ -76,9 +85,11 @@ func DetailOrder(ctx *gin.Context)  {
 	}()
 
 	var order models.Order
+	var car models.Car
 	id := ctx.Param("id")
 
 	err := db.First(&order, id).Error
+
 	if err != nil {
 		ctx.JSON(500, gin.H{
 			"message": "Failed to get order",
@@ -86,7 +97,27 @@ func DetailOrder(ctx *gin.Context)  {
 		return
 	}
 
-	ctx.JSON(200, order)
+	err = db.First(&car, order.CarId).Error
+	if err != nil {
+		ctx.JSON(500, gin.H{
+			"message": "Failed to get relation car",
+		})
+		return
+	}
+
+	//create new struct for response
+	type Response struct {
+		ID int `json:"id"`
+		Car models.Car `json:"car"`
+		Order models.Order `json:"order"`
+	}
+
+	var response Response
+	response.ID = order.OrderId
+	response.Car = car
+	response.Order = order
+
+	ctx.JSON(200, response)
 }
 
 func UpdateOrder(ctx *gin.Context)  {
@@ -102,10 +133,21 @@ func UpdateOrder(ctx *gin.Context)  {
 		}
 	}()
 
+	id := ctx.Param("id")
 	var order models.Order
+
+	err := db.First(&order, id).Error
+	
+	if err != nil {
+		ctx.JSON(500, gin.H{
+			"message": "Failed to get order",
+		})
+		return
+	}
+
 	ctx.BindJSON(&order)
 
-	err := db.Save(&order).Error
+	err = db.Save(&order).Error
 	if err != nil {
 		ctx.JSON(500, gin.H{
 			"message": "Failed to update order",

@@ -4,6 +4,7 @@ import (
 	"be/config"
 	"be/models"
 	"log"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,15 +22,31 @@ func GetCars(ctx *gin.Context)  {
 		}
 	}()
 
+	limitParam := ctx.DefaultQuery("limit", "10")
+	pageParam := ctx.DefaultQuery("page", "1")
+
+	limit, err := strconv.Atoi(limitParam)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+
+	page, err := strconv.Atoi(pageParam)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+
+	offset := (page - 1) * limit
+		
 	var cars []models.Car
 
-	err := db.Find(&cars).Error
-	if err != nil {
-		ctx.JSON(500, gin.H{
-			"message": "Failed to get cars",
-		})
-		return
-	}
+	err = db.Limit(limit).Offset(offset).Find(&cars).Error
+    if err != nil {
+        ctx.JSON(500, gin.H{
+            "message": "Failed to get cars",
+            "error":   err.Error(),
+        })
+        return
+    }
 
 	ctx.JSON(200, cars)
 }
